@@ -1,20 +1,35 @@
+# GEM requires
 require 'droplet_kit'
+require 'colorize'
+require 'optparse'
+require 'ostruct'
 
-v1 = ARGV[0]
-v2 = ARGV[1]
-v3 = ARGV[2]
-v4 = ARGV[3]
+# Options parsing
+options = OpenStruct.new
+OptionParser.new do |opt|
+	opt.on('-o', '--output OUTPUT', 'The output directory') { |o| options.output = o }
+	opt.on('-s', '--size SIZE', 'The VMs RAM Spec') { |o| options.size = o }
+	opt.on('-n', '--name NAME', 'The VMs Name') { |o| options.name = o }
+	opt.on('-r', '--region REGION', 'THE VMs Region') { |o| options.region = o }
+	opt.on('-i', '--image IMAGE', 'The VMs Operating System') { |o| options.image = o }
+	opt.on('-t', '--token TOKEN', 'The token file location') { |o| options.token = o }
+end.parse!
 
-file = File.open("token.txt", "rb")
-access_token = file.read
+# Cleans up vars so we can use the same var names later
+options.name != nil ? name = options.name : name = "default"
+options.region != nil ? region = options.region : region = "nyc1"
+options.image != nil ? image = options.image : image = "ubuntu-16-04-x64"
+options.size != nil ? size = options.size : size = "512mb"
+options.token != nil ? token = options.token : token = nil
+options.output != nil ? output = options.output : output = ""
 
-if v1 != nil && v2 != nil && v3 != nil && v4 != nil
-	puts "You entered vars from CMD LINE" 
-	name = v1
-	region = v2
-	os = v3
-	size = v4
-else
+# Token file reader
+file = File.open(token, "rb")
+token = file.read
+
+# If params aren't set this defaults to terminal UI mode
+if(name == nil || region == nil || image == nil || size == nil || token == nil || output == nil)
+	# This is the terminal based gui
 	operatingsystems = {
 		"1" => "ubuntu-16-04-x64",
 		"2" => "centos-7-0-x64",
@@ -35,7 +50,7 @@ else
 		"4" => "4gb",
 	}
 
-	puts "\nDigitalocean Droplet Maker\n"
+	puts "\nDigitalocean Droplet Maker\n".red
 
 	puts "\nPlease enter a name for your Droplet:"
 	name = gets.chomp
@@ -46,9 +61,9 @@ else
 	region = regions[region]
 
 	puts "\nPlease select a OS for your Droplet:"
-	operatingsystems.each { |n,r| puts n + ") " + r}
-	os = gets.chomp
-	os = operatingsystems[os]
+	images.each { |n,r| puts n + ") " + r}
+	image = gets.chomp
+	image = images[image]
 
 	puts "\nPlease select the amount of ram for your Droplet:"
 	sizes.each { |n,r| puts n + ") " + r}
@@ -64,16 +79,19 @@ else
 	selection = gets.chomp
 end
 
-client = DropletKit::Client.new(access_token: access_token)
+#Generates a new dropletkit client based on access token
+client = DropletKit::Client.new(access_token: token)
 
+#Creates an array of all the SSH keys on your DO account
 my_ssh_keys = client.ssh_keys.all.collect {|key| key.fingerprint}
 
-droplet = DropletKit::Droplet.new(name: name, region: region, image: os, size: size, ssh_keys: my_ssh_keys)
+droplet = DropletKit::Droplet.new(name: name, region: region, image: image, size: size, ssh_keys: my_ssh_keys)
 
 created = client.droplets.create(droplet)
 
 mytargetdroplet = client.droplets.find(id: created.id) 
 
+#Wait for Droplet to come on line before returning IP, this is done for ease of automation.
 while mytargetdroplet.status != "active" do
   sleep(5)
   puts "Waiting for Droplet Creation."
@@ -81,4 +99,12 @@ while mytargetdroplet.status != "active" do
   mytargetdroplet = client.droplets.find(id: created.id)
 end
 
-$stdout.write mytargetdroplet.networks.v4[0].ip_address.to_s
+#Outputs IP to a file vs STDOUT
+if output != nil
+  output = File.open( output,"w" )
+  output << mytargetdroplet.networks.v4[0].ip_address.to_s
+  output.close
+  puts "Output written to: " + output.to_s
+else
+    $stdout.write mytargetdroplet.networks.v4[0].ip_address.to_s
+end
