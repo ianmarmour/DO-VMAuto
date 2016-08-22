@@ -3,6 +3,7 @@ require 'droplet_kit'
 require 'colorize'
 require 'optparse'
 require 'ostruct'
+require 'thread'
 
 # Options parsing
 options = OpenStruct.new
@@ -85,13 +86,14 @@ client = DropletKit::Client.new(access_token: token)
 #Creates an array of all the SSH keys on your DO account
 my_ssh_keys = client.ssh_keys.all.collect {|key| key.fingerprint}
 
-(0..name.length).each do |i|
+#Threads
+threads = (0...name.length).map do |i|
 
   if i >= name.length then
     break
   end
 
-  thr = Thread.new {
+  Thread.new(i) {
     droplet = DropletKit::Droplet.new(name: name[i], region: region, image: image, size: size, ssh_keys: my_ssh_keys)
     
     created = client.droplets.create(droplet)
@@ -117,6 +119,6 @@ my_ssh_keys = client.ssh_keys.all.collect {|key| key.fingerprint}
    end
   }
   
-  thr.join
-  thr.exit
 end
+
+threads.each { |t| t.join }
