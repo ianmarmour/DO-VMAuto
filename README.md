@@ -7,8 +7,13 @@ This tool was created to assist with deployment via automation software such as 
 ## Flags
 
 -o | The output directory
+
 -s | The VM's RAM Spec
+
 -n | Name or Names ( ex. test,test2,test3,test4 )
+
 -r | The VMs Region on DO
+
 -i | The VMs operating system image
+
 -t | The token file location
