@@ -9,7 +9,7 @@ options = OpenStruct.new
 OptionParser.new do |opt|
 	opt.on('-o', '--output OUTPUT', 'The output directory') { |o| options.output = o }
 	opt.on('-s', '--size SIZE', 'The VMs RAM Spec') { |o| options.size = o }
-	opt.on('-n', '--name NAME', 'The VMs Name') { |o| options.name = o }
+	opt.on('-n', '--name NAME,NAME1,NAME2', Array, "List of name/names of VMs") { |o| options.name = o }
 	opt.on('-r', '--region REGION', 'THE VMs Region') { |o| options.region = o }
 	opt.on('-i', '--image IMAGE', 'The VMs Operating System') { |o| options.image = o }
 	opt.on('-t', '--token TOKEN', 'The token file location') { |o| options.token = o }
@@ -85,26 +85,38 @@ client = DropletKit::Client.new(access_token: token)
 #Creates an array of all the SSH keys on your DO account
 my_ssh_keys = client.ssh_keys.all.collect {|key| key.fingerprint}
 
-droplet = DropletKit::Droplet.new(name: name, region: region, image: image, size: size, ssh_keys: my_ssh_keys)
+(0..name.length).each do |i|
 
-created = client.droplets.create(droplet)
+  if i >= name.length then
+    break
+  end
 
-mytargetdroplet = client.droplets.find(id: created.id) 
+  thr = Thread.new {
+    droplet = DropletKit::Droplet.new(name: name[i], region: region, image: image, size: size, ssh_keys: my_ssh_keys)
+    
+    created = client.droplets.create(droplet)
 
-#Wait for Droplet to come on line before returning IP, this is done for ease of automation.
-while mytargetdroplet.status != "active" do
-  sleep(5)
-  puts "Waiting for Droplet Creation."
-  puts mytargetdroplet.status
-  mytargetdroplet = client.droplets.find(id: created.id)
-end
+    mytargetdroplet = client.droplets.find(id: created.id)
 
-#Outputs IP to a file vs STDOUT
-if output != nil
-  output = File.open( output,"w" )
-  output << mytargetdroplet.networks.v4[0].ip_address.to_s
-  output.close
-  puts "Output written to: " + output.to_s
-else
-    $stdout.write mytargetdroplet.networks.v4[0].ip_address.to_s
+   #Wait for Droplet to come on line before returning IP, this is done for ease of automation.
+   while mytargetdroplet.status != "active" do
+     sleep(5)
+     puts "Waiting for Droplet Creation."
+     mytargetdroplet = client.droplets.find(id: created.id)
+   end
+
+   #Outputs IP to a file vs STDOUT
+   if output != nil
+     output = File.open( output,"a")
+     output << mytargetdroplet.networks.v4[0].ip_address.to_s + "\n"
+     output.close
+     outputname = File.basename options.output
+     puts "Output written to: " + outputname
+   else
+     $stdout.write mytargetdroplet.networks.v4[0].ip_address.to_s
+   end
+  }
+  
+  thr.join
+  thr.exit
 end
