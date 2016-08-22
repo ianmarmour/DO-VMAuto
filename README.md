@@ -6,14 +6,14 @@ This tool was created to assist with deployment via automation software such as 
 
 ## Flags
 
--o | The output directory
+-o | --output | The output directory
 
--s | The VM's RAM Spec
+-s | --size | The VM's RAM Spec
 
--n | Name or Names ( ex. test,test2,test3,test4 )
+-n | --name | Name or Names ( ex. test,test2,test3,test4 )
 
--r | The VMs Region on DO
+-r | --region | The VMs Region on DO
 
--i | The VMs operating system image
+-i | --image | The VMs operating system image
 
--t | The token file location
+-t | --token | The token file location
